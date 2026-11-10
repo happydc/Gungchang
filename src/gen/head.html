@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>궁창 제작도면 생성기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 배치: 왼쪽에 도면 카드들(조립도 → 부재도 → 재단표), 오른쪽에 치수 입력 패널. 좁은 화면은 한 줄 */
+  --paper:#f3f5f6; --panel:#ffffff; --ink:#1c2a30; --mute:#5d6e76; --line:#d3dade;
+  --accent:#17695a; --woodfill:#f1e3c8; --steelfill:#dfe5ea; --warn:#b3261e; --care:#a86a00; --good:#17695a;
+  --display:"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#12191c; --panel:#1a2327; --ink:#e4ecef; --mute:#93a4ac; --line:#2e3b41;
+  --accent:#5cc4ae; --woodfill:#3b3324; --steelfill:#2b343b; --warn:#ff8a80; --care:#f0b955; --good:#5cc4ae; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --paper:#12191c; --panel:#1a2327; --ink:#e4ecef; --mute:#93a4ac; --line:#2e3b41;
+  --accent:#5cc4ae; --woodfill:#3b3324; --steelfill:#2b343b; --warn:#ff8a80; --care:#f0b955; --good:#5cc4ae; color-scheme:dark;}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--display);font-size:15px;line-height:1.5}
+main{max-width:1320px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:16px}
+h1{font-size:22px;font-weight:600;margin:0;text-wrap:balance}
+.lede{color:var(--mute);margin:4px 0 0;max-width:68ch}
+.work{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:920px){.work{grid-template-columns:1fr}}
+.cards{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card,.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.card{padding:12px 14px}
+.card header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.card h2{font-size:15px;font-weight:600;margin:0}
+.card .sub{color:var(--mute);font-size:13px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+svg{display:block;width:100%;height:auto;max-height:560px}
+svg .o{fill:none;stroke:var(--ink);stroke-width:1.5px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+svg .w{fill:var(--woodfill)} svg .s{fill:var(--steelfill)} svg .p{fill:var(--panel)}
+svg .h{fill:none;stroke:var(--ink);stroke-width:1px;stroke-dasharray:5 4;vector-effect:non-scaling-stroke}
+svg .c{fill:none;stroke:var(--mute);stroke-width:.8px;stroke-dasharray:10 3 2 3;vector-effect:non-scaling-stroke}
+svg .d{fill:none;stroke:var(--accent);stroke-width:.9px;vector-effect:non-scaling-stroke}
+svg text{font-family:var(--display);fill:var(--ink)} svg text.dt{fill:var(--accent);font-family:var(--mono)} svg text.n{fill:var(--mute)}
+button{font:inherit;font-weight:600;color:var(--panel);background:var(--accent);border:0;border-radius:6px;padding:7px 14px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+button.sm{font-size:12.5px;padding:3px 9px;font-weight:500}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.panel{padding:14px;display:flex;flex-direction:column;gap:14px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+@media (max-width:920px){.panel{position:static;max-height:none}}
+.panel h2{font-size:13px;font-weight:600;color:var(--mute);margin:0}
+.grp{display:flex;flex-direction:column;gap:6px}
+.seg{display:flex;gap:6px}.seg button{flex:1;padding:7px 6px}
+.fld{display:grid;grid-template-columns:1fr 104px;gap:8px;align-items:center}
+.fld label{font-size:14px}
+.fld select{font-family:var(--display)!important;text-align:left!important;font-size:13px!important}
+.fld input,.fld select,select.full{font:inherit;font-family:var(--mono);font-size:13.5px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);width:100%;text-align:right}
+select.full{font-family:var(--display);text-align:left;padding:6px 8px}
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.chk{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:6px;padding:8px 12px}
+.chk .k{font-size:12.5px;color:var(--mute)} .chk .v{font-family:var(--mono);font-size:17px;font-variant-numeric:tabular-nums} .chk .s{font-size:12.5px;color:var(--mute)}
+.chk.good{border-left-color:var(--good)} .chk.care{border-left-color:var(--care)} .chk.warn{border-left-color:var(--warn)}
+.chk.warn .v{color:var(--warn)} .chk.care .v{color:var(--care)}
+.tblwrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{font-size:12.5px;color:var(--mute);font-weight:600}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.foot{color:var(--mute);font-size:13px;display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
+.foot a,.lede a{color:var(--accent)}
+@media print{body.printing{background:#fff}body.printing main>*:not(.work),body.printing .panel,body.printing .card:not(.print-target),body.printing .card header,body.printing .tblwrap,body.printing .note{display:none!important}body.printing main,body.printing .work,body.printing .cards,body.printing .two{display:block;padding:0;margin:0;max-width:none}body.printing .card{border:0;padding:0}body.printing svg{width:var(--pw)!important;height:var(--ph)!important;max-height:none!important;aspect-ratio:auto!important}body.printing svg .w,body.printing svg .s,body.printing svg .p{fill:none}@page{margin:8mm}}
+.note{color:var(--mute);font-size:13.5px;margin:6px 0 0;max-width:75ch}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>궁창 제작도면 생성기</h1>
+  <p class="lede">치수를 넣으면 궁창의 조립도, 부재도, 재단표를 그립니다. 전통 목재형과 개량 롤러형을 고를 수 있습니다. 기본값은 <a href="sim/">도지개 채우기 시뮬레이션</a>에서 확인한 치수입니다. 단위는 모두 mm입니다. 도면마다 SVG와 DXF(1:1)로 저장하거나 실제 크기로 인쇄할 수 있습니다.</p>
+</header>
+<section class="checks" id="checks" aria-live="polite"></section>
+<section class="work">
+  <div class="cards" id="cards"></div>
+  <aside class="panel">
+    <div class="grp"><h2>궁창 형식</h2>
+      <div class="seg"><button type="button" id="k_trad">전통 목재형</button><button type="button" id="k_roller" class="ghost">개량 롤러형</button></div>
+    </div>
+    <div id="fields"></div>
+    <div class="grp"><button type="button" class="ghost" id="reset">이 형식의 기본값으로 되돌리기</button></div>
+  </aside>
+</section>
+<footer class="foot"><span>만든 사람: @용현정 이동철</span><span>치수는 제작 전에 실물과 대조해 확인하세요. 1:1 인쇄는 인쇄 설정에서 배율 100%로 두어야 합니다.</span></footer>
+</main>
+<script>

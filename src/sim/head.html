@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>궁창 도지개 채우기 시뮬레이션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 배치: 왼쪽 넓은 측면도 + 오른쪽 조작 패널, 아래에 판독값 띠. 좁은 화면에서는 한 줄로 쌓임 */
+  --paper:#f3f5f6; --panel:#ffffff; --ink:#1c2a30; --mute:#5d6e76; --line:#d3dade;
+  --accent:#17695a; --wood:#c9a06a; --wood-edge:#8a6535; --bow:#3a2c25; --grip:#e8dcc0;
+  --steel:#8793a0; --board:#dcc9a3; --warn:#b3261e; --care:#a86a00; --good:#17695a;
+  --display:"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#12191c; --panel:#1a2327; --ink:#e4ecef; --mute:#93a4ac; --line:#2e3b41;
+  --accent:#5cc4ae; --wood:#b08a58; --wood-edge:#e0bf8c; --bow:#d9c7b8; --grip:#6d6450;
+  --steel:#9aa7b3; --board:#5a4c33; --warn:#ff8a80; --care:#f0b955; --good:#5cc4ae; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --paper:#12191c; --panel:#1a2327; --ink:#e4ecef; --mute:#93a4ac; --line:#2e3b41;
+  --accent:#5cc4ae; --wood:#b08a58; --wood-edge:#e0bf8c; --bow:#d9c7b8; --grip:#6d6450;
+  --steel:#9aa7b3; --board:#5a4c33; --warn:#ff8a80; --care:#f0b955; --good:#5cc4ae; color-scheme:dark;}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--display);font-size:15px;line-height:1.5}
+main{max-width:1280px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:16px}
+h1{font-size:22px;font-weight:600;margin:0;text-wrap:balance}
+.lede{color:var(--mute);margin:4px 0 0;max-width:65ch}
+.work{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+@media (max-width:900px){.work{grid-template-columns:1fr}}
+.stage,.panel,.note{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+.stage{padding:10px}
+canvas{display:block;width:100%;aspect-ratio:1400/960;border-radius:4px}
+.press{display:flex;gap:10px;align-items:center;padding:10px 4px 2px;flex-wrap:wrap}
+.press label{font-weight:600}
+.press input[type=range]{flex:1;min-width:160px}
+button{font:inherit;font-weight:600;color:var(--panel);background:var(--accent);border:0;border-radius:6px;padding:7px 14px;cursor:pointer}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.panel{padding:14px;display:flex;flex-direction:column;gap:14px}
+.panel h2{font-size:13px;font-weight:600;color:var(--mute);margin:0;letter-spacing:.02em}
+.grp{display:flex;flex-direction:column;gap:8px}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+.row label{font-size:14px}
+.row output{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+input[type=range]{accent-color:var(--accent)}
+select{font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);width:100%}
+.seg{display:flex;gap:6px}.seg button{flex:1;padding:7px 6px}
+.steps{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;padding:2px 2px 0}.steps button{flex:1;min-width:200px;text-align:left;font-weight:500;padding:9px 12px}.steps b{font-weight:600;margin-right:6px}.steps .arrow{align-self:center;color:var(--mute)}
+.cap{margin:8px 4px 8px;color:var(--mute);font-size:14px;min-height:1.5em}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px}
+.reads{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.read{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:6px;padding:9px 12px}
+.read .k{font-size:12.5px;color:var(--mute)}
+.read .v{font-family:var(--mono);font-size:19px;font-variant-numeric:tabular-nums}
+.read .s{font-size:12.5px;color:var(--mute)}
+.read.good{border-left-color:var(--good)}.read.care{border-left-color:var(--care)}.read.warn{border-left-color:var(--warn)}
+.read.warn .v{color:var(--warn)}.read.care .v{color:var(--care)}
+.note{padding:14px 16px}.note h2{font-size:15px;margin:0 0 6px}.note ul{margin:0;padding-left:18px;max-width:75ch;color:var(--mute)}
+.note li{margin:3px 0}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>궁창 도지개 채우기 시뮬레이션</h1>
+  <p class="lede"><a href="../" style="color:var(--accent)">← 궁창 제작도면 생성기</a><br>아랫장에 먼저 도지개를 채우고, 그 상태에서 윗장을 채우는 과정을 옆에서 본 모습입니다. 도지개의 줌통 쪽 끝을 먼저 묶고, 그 끈 부분을 걸이봉에 건 다음 도지개를 받침에 얹고 고자 쪽 활채를 눌러 도지개에 붙입니다. 치수를 바꾸면 활이 지지판이나 바닥에 닿는지 바로 확인할 수 있습니다.</p>
+</header>
+<section class="work">
+  <div class="stage">
+    <div class="steps" role="group" aria-label="단계">
+      <button type="button" id="st1"><b>1단계</b> 아랫장에 도지개 채우기</button>
+      <span class="arrow" aria-hidden="true">→</span>
+      <button type="button" id="st2" class="ghost"><b>2단계</b> 윗장에 도지개 채우기</button>
+    </div>
+    <p class="cap" id="cap"></p>
+    <canvas id="cv" width="1400" height="960" aria-label="궁창 측면 시뮬레이션"></canvas>
+    <div class="press">
+      <label for="t">누름 진행</label>
+      <input type="range" id="t" min="0" max="1" step="0.005" value="0">
+      <output id="t_o" style="font-family:var(--mono);min-width:44px">0%</output>
+      <button id="play" type="button">이 단계 눌러 보기</button>
+      <button id="playAll" type="button" class="ghost">1→2단계 이어 보기</button>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="grp">
+      <h2>궁창 형식</h2>
+      <div class="seg"><button type="button" id="p_roller">개량 롤러형</button><button type="button" id="p_trad" class="ghost">전통 목재형</button></div>
+    </div>
+    <div class="grp">
+      <h2>활과 도지개</h2>
+      <div class="row"><label for="curl">활이 말린 정도</label><output id="curl_o"></output><input type="range" id="curl" min="0.3" max="1" step="0.01" value="0.7"></div>
+      <div class="row"><label for="grade">도지개 등급</label><span></span><select id="grade" style="grid-column:1/-1"><option value="1">1형 중곡</option><option value="2" selected>2형 중곡~심곡 (표준)</option><option value="3">3형 심곡</option></select></div>
+      <div class="row" hidden><label for="stage">단계</label><span></span><select id="stage"><option value="1" selected>1</option><option value="2">2</option></select></div>
+      <div class="row"><label for="gLow">아랫장: 줌통 끝에서 띄움</label><output id="gLow_o"></output><input type="range" id="gLow" min="0" max="60" step="1" value="15"></div>
+      <div class="row"><label for="gUp">윗장: 줌통 끝에서 띄움</label><output id="gUp_o"></output><input type="range" id="gUp" min="0" max="60" step="1" value="10"></div>
+      <div class="row"><label for="kink">줌통 끝의 꺾임각 (한쪽)</label><output id="kink_o"></output><input type="range" id="kink" min="0" max="45" step="1" value="24"></div>
+    </div>
+    <div class="grp">
+      <h2>궁창 치수 (지지판 윗면 기준, mm)</h2>
+      <div class="row"><label for="hBar">걸이봉 중심 높이</label><output id="hBar_o"></output><input type="range" id="hBar" min="80" max="400" step="1"></div>
+      <div class="row"><label for="rBar">걸이봉 반지름</label><output id="rBar_o"></output><input type="range" id="rBar" min="8" max="40" step="1"></div>
+      <div class="row"><label for="hSup">받침 윗면 높이</label><output id="hSup_o"></output><input type="range" id="hSup" min="60" max="380" step="1"></div>
+      <div class="row"><label for="rSup">받침 윗면 반지름</label><output id="rSup_o"></output><input type="range" id="rSup" min="5" max="40" step="1"></div>
+      <div class="row"><label for="dx" id="dx_l">걸이봉 ↔ 받침 수평 거리</label><output id="dx_o"></output><input type="range" id="dx" min="30" max="320" step="1"></div>
+      <div class="row"><label for="sBar">걸이봉이 닿는 곳 (먼저 묶은 끈 기준)</label><output id="sBar_o"></output><input type="range" id="sBar" min="-60" max="60" step="1" value="0"></div>
+    </div>
+    <div class="grp">
+      <h2>지지판</h2>
+      <div class="row"><label for="len">길이</label><output id="len_o"></output><input type="range" id="len" min="300" max="1300" step="10"></div>
+      <div class="row"><label for="back">걸이봉 뒤로 남는 길이</label><output id="back_o"></output><input type="range" id="back" min="20" max="400" step="5"></div>
+      <div class="row"><label for="bt">두께</label><output id="bt_o"></output><input type="range" id="bt" min="18" max="90" step="1" value="40"></div>
+      <div class="row"><label for="foot">발 높이 (밑에 덧댄 각재)</label><output id="foot_o"></output><input type="range" id="foot" min="0" max="80" step="1" value="0"></div>
+    </div>
+  </div>
+</section>
+<section class="reads" id="reads" aria-live="polite"></section>
+<section class="note">
+  <h2>이 시뮬레이션이 가정한 것</h2>
+  <ul>
+    <li>도지개 형상은 도지개 도면 생성기의 기본값(길이 360, 3개 등급)을 그대로 썼습니다. 도지개는 항상 짧은 쪽이 줌통 쪽입니다. 줌통 끝에서 아랫장 15, 윗장 10을 띄워 묶는 것을 기본으로 했습니다.</li>
+    <li>걸이봉에는 줌통이 아니라 먼저 묶은 끈 부분(도지개 줌통 쪽 끝에서 약 15)이 걸립니다. 끈 두께는 5로 보았습니다.</li>
+    <li>도지개의 줌통 쪽 끝은 활에 단단히 묶여 줌통과 한 몸으로 움직인다고 보았습니다. 그래서 누르는 동안 자세는 그대로이고 고자 쪽 활채만 내려옵니다.</li>
+    <li>활의 말린 모양은 길이 1240, 줌통 80으로 두고 곡률을 가정해 만들었습니다. 말린 정도 0.7에서 폭 약 610 × 높이 약 440입니다. 실제 활의 폭과 높이에 맞춰 조절하세요.</li>
+    <li>줌통 양 끝은 도지개로 펴지지 않는 굳은 꺾임으로 보았습니다. 도지개를 양쪽 다 채운 활 사진에서 두 도지개가 거의 일직선으로 나란했으므로, 2형 도지개에서 그렇게 되는 한쪽 24°를 기본값으로 했습니다.</li>
+    <li>활채가 펴지는 중간 모양은 말린 곡률과 도지개 곡률을 비율로 섞은 것이라 실제 휨과 다를 수 있습니다. 시작과 끝 모양, 간섭 여부를 보는 용도입니다.</li>
+    <li>끈 묶는 자리는 다 눌렀을 때 도지개 고자 쪽 끝 아래의 높이입니다. 손을 넣어 끈을 돌려야 하므로 100 이상을 기준으로 삼았습니다.</li>
+    <li>전통형의 받침은 지지판에 고정하지 않고 옮겨 가며 쓰는 것으로 보았습니다. 받침 위치 슬라이더로 옮겨 볼 수 있습니다.</li>
+    <li>지지판 두께는 40을 기본으로 했습니다.</li>
+    <li>걸이봉과 받침은 둥근 단면으로 단순화했습니다. 힘의 크기는 계산하지 않습니다.</li>
+  </ul>
+</section>
+</main>
+<script>
